@@ -1,0 +1,24 @@
+[package]
+name = "opmusic-ds"
+version = "0.1.0"
+description = "Op Music — local music player, serif monochrome"
+edition = "2021"
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+lofty = "0.22"
+walkdir = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
