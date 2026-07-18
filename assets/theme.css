@@ -1,0 +1,57 @@
+/* ============================================
+   Op Music — Design Tokens & Theme System
+   ============================================ */
+
+/* ── Light Theme (default) ───────────────── */
+:root {
+  /* Background */
+  --bg:        #fafaf9;
+  --surface:   #ffffff;
+  --surface-2: #f5f5f4;
+
+  /* Text */
+  --text:    #1c1917;
+  --text-2:  #78716c;
+  --text-3:  #a8a29e;
+  --accent:  #1c1917;
+
+  /* Decorative */
+  --divider: #e7e5e4;
+  --radius:  0px;
+
+  /* Typography */
+  --font:     "Georgia", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+  --font-mono: "SF Mono", "Consolas", "Monaco", monospace;
+  --font-script: "Edwardian Script ITC", "Palace Script MT", "Script MT Bold",
+                 "Segoe Script", "Brush Script MT", cursive;
+
+  /* Motion */
+  --transition: .2s cubic-bezier(.25,.46,.45,.94);
+}
+
+/* ── Blue Theme ──────────────────────────── */
+html[data-theme="blue"] {
+  --bg:        #2f55cb;
+  --surface:   #365ecf;
+  --surface-2: #2a4db8;
+  --text:      #ffffff;
+  --text-2:    rgba(255,255,255, 0.72);
+  --text-3:    rgba(255,255,255, 0.45);
+  --accent:    #ffffff;
+  --divider:   rgba(255,255,255, 0.12);
+}
+
+/* ── Usage ─────────────────────────────────
+   body              bg: var(--bg)           text: var(--text)
+   .sidebar          bg: var(--surface)
+   .topbar           bg: var(--surface)
+   .player-bar       bg: var(--surface)
+   .btn-primary      bg: var(--surface)      fg: var(--accent)
+   .btn-icon         bg: var(--surface)      fg: var(--accent)
+   .song-row:hover   bg: var(--surface-2)
+   .search-box       bg: var(--surface-2)
+   .progress-fill    bg: var(--accent)
+   .divider          bg: var(--divider)
+   .logo-ascii                           fg: var(--accent)   font: var(--font-mono)
+   .logo-musica                           fg: var(--text-2)   font: var(--font-script)
+*/
