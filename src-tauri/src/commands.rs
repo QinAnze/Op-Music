@@ -169,6 +169,19 @@ pub fn get_scan_dirs(state: State<'_, AppState>) -> Result<Vec<String>, String> 
         .map_err(|e| e.to_string())
 }
 
+/// Open a save-file dialog for ZIP export
+#[tauri::command]
+pub async fn pick_save_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let result = app
+        .dialog()
+        .file()
+        .add_filter("ZIP Archive", &["zip"])
+        .set_file_name("favorites.zip")
+        .blocking_save_file();
+    Ok(result.map(|p| p.to_string()))
+}
+
 /// Open a directory picker dialog and return the selected path
 #[tauri::command]
 pub async fn pick_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
@@ -235,6 +248,71 @@ pub fn load_favorites(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     let cleaned = serde_json::to_string(&valid).map_err(|e| format!("Failed to serialize: {}", e))?;
     let _ = fs::write(&fav_path, cleaned);
     Ok(valid)
+}
+
+/// Toggle auto-start on boot (Windows registry)
+#[tauri::command]
+pub fn get_autostart() -> Result<bool, String> {
+    use std::process::Command;
+    let output = Command::new("reg")
+        .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "OpMusic"])
+        .output()
+        .map_err(|e| format!("reg query failed: {}", e))?;
+    Ok(output.status.success())
+}
+
+#[tauri::command]
+pub fn set_autostart(enable: bool) -> Result<bool, String> {
+    use std::process::Command;
+    let exe = std::env::current_exe().map_err(|e| format!("current_exe: {}", e))?;
+    let exe_path = exe.to_string_lossy().to_string();
+    if enable {
+        Command::new("reg")
+            .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                   "/v", "OpMusic", "/t", "REG_SZ", "/d", &exe_path, "/f"])
+            .output()
+            .map_err(|e| format!("reg add failed: {}", e))?;
+    } else {
+        Command::new("reg")
+            .args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                   "/v", "OpMusic", "/f"])
+            .output()
+            .map_err(|e| format!("reg delete failed: {}", e))?;
+    }
+    Ok(enable)
+}
+
+/// Export favorited audio files into a ZIP archive
+#[tauri::command]
+pub fn export_favorites_zip(paths: Vec<String>, dest: String) -> Result<(), String> {
+    use std::fs;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+
+    let file = fs::File::create(&dest).map_err(|e| format!("Cannot create zip: {}", e))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    for src in &paths {
+        let name = std::path::Path::new(src)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
+        match fs::read(src) {
+            Ok(bytes) => {
+                zip.start_file(name, options)
+                    .map_err(|e| format!("zip start_file: {}", e))?;
+                zip.write_all(&bytes)
+                    .map_err(|e| format!("zip write: {}", e))?;
+            }
+            Err(e) => {
+                eprintln!("Skipping {}: {}", src, e);
+            }
+        }
+    }
+    zip.finish().map_err(|e| format!("zip finish: {}", e))?;
+    Ok(())
 }
 
 /// Clear all user data: scan dirs, favorites, and in-memory state

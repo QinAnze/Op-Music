@@ -35,11 +35,15 @@ pub fn run() {
             commands::search_library,
             commands::get_scan_dirs,
             commands::pick_folder,
+            commands::pick_save_path,
             commands::get_library_stats,
             commands::read_audio_data_url,
             commands::save_favorites,
             commands::load_favorites,
             commands::clear_all_data,
+            commands::get_autostart,
+            commands::set_autostart,
+            commands::export_favorites_zip,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Op Music");

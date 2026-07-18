@@ -283,6 +283,7 @@ function renderSongs(pl){
 
 function switchPlaylist(id){
   if(id==='fav'){ showFavorites(); return; }
+  $('exportFavBtn').style.display = 'none';
   var pl = null;
   for(var i=0;i<allPls.length;i++) if(allPls[i].id===id){ pl=allPls[i]; break; }
   if(!pl) return;
@@ -306,6 +307,8 @@ function showFavorites(){
   currentPlId='fav';
   renderSongs(pl);
   switchView('discover');
+  // Show export button only on favorites
+  $('exportFavBtn').style.display = '';
 }
 
 // ---- View switching ----
@@ -539,6 +542,38 @@ function init(){
   // Add folder buttons
   $('addFolderBtn').addEventListener('click',addFolder);
   $('onboardAddBtn').addEventListener('click',addFolder);
+
+  // Settings panel
+  $('settingsBtn').addEventListener('click',function(){
+    $('settingsOverlay').classList.add('active');
+    // Refresh autostart state
+    invoke('get_autostart').then(function(on){ $('autostartCheck').checked = !!on; })
+      .catch(function(){});
+  });
+  $('settingsClose').addEventListener('click',function(){ $('settingsOverlay').classList.remove('active'); });
+  $('settingsOverlay').addEventListener('click',function(e){ if(e.target===this) $('settingsOverlay').classList.remove('active'); });
+  $('autostartCheck').addEventListener('change',function(){
+    invoke('set_autostart',{enable:this.checked}).catch(function(e){ console.warn('set_autostart:',e); });
+  });
+
+  // Export favorites as ZIP
+  $('exportFavBtn').addEventListener('click',async function(){
+    if(loved.length===0){ alert('收藏夹为空，没有可导出的文件。'); return; }
+    try{
+      var dest = await invoke('pick_save_path');
+      if(!dest) return;
+      // Ensure .zip extension
+      if(!dest.toLowerCase().endsWith('.zip')) dest += '.zip';
+      $('exportFavBtn').style.opacity = '0.5';
+      await invoke('export_favorites_zip',{paths:loved,dest:dest});
+      alert('已导出 ' + loved.length + ' 首歌曲到:\n' + dest);
+      $('exportFavBtn').style.opacity = '';
+    }catch(e){
+      console.warn('export failed:',e);
+      alert('导出失败: ' + (e.message||e));
+      $('exportFavBtn').style.opacity = '';
+    }
+  });
 
   // Clear cache button
   $('clearCacheBtn').addEventListener('click',function(){

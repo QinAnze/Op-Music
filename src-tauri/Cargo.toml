@@ -14,6 +14,7 @@ serde_json = "1"
 base64 = "0.22"
 lofty = "0.22"
 walkdir = "2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

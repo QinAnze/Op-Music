@@ -53,8 +53,14 @@
         <input type="text" id="searchInput" placeholder="搜索本地音乐..." autocomplete="off"/>
       </div>
       <div class="topbar-actions">
+        <button class="icon-btn" id="exportFavBtn" title="打包收藏夹为 ZIP" style="display:none">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm8-6v-2h-2v2H9l3 3 3-3h-2z"/></svg>
+        </button>
         <button class="icon-btn" id="themeBtn" title="切换皮肤">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm0 1v14a7 7 0 0 0 0-14z"/></svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="设置">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19.14 12.94a7.01 7.01 0 0 0 .06-.94c0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a6.94 6.94 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
         </button>
         <button class="icon-btn" id="clearCacheBtn" title="清除所有导入记录和收藏">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm2.46-7.12 1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>
@@ -158,6 +164,20 @@
     <div class="spectrum-art" id="spectrumArt"></div>
     <div class="spectrum-info"><h3 id="spectrumTitle"></h3><p id="spectrumArtist"></p></div>
     <canvas class="spectrum-canvas" id="spectrumCanvas"></canvas>
+  </div>
+</div>
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <h3>设置</h3>
+      <button class="settings-close" id="settingsClose">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="m12 10.59 4.95-4.95 1.41 1.41-4.95 4.95 4.95 4.95-1.41 1.41-4.95-4.95-4.95 4.95-1.41-1.41 4.95-4.95-4.95-4.95 1.41-1.41z"/></svg>
+      </button>
+    </div>
+    <label class="settings-row">
+      <span>开机自启</span>
+      <input type="checkbox" id="autostartCheck"/>
+    </label>
   </div>
 </div>
 <audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
