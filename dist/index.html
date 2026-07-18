@@ -151,6 +151,9 @@
       <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12z"/></svg>
     </button>
     <div class="volume-bar" id="volumeBar"><div class="volume-fill" id="volumeFill"></div></div>
+    <button class="icon-btn" id="lyricsBtn" title="魔法书">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 6H2v14a2 2 0 0 0 2 2h14v-2H4V6zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0 14H8V4h12v12zm-2-9h-8v2h8V5zm-8 4h5v2H8V9zm0 5h8v2H8v-2z"/></svg>
+    </button>
     <button class="icon-btn" id="spectrumBtn" title="频谱">
       <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 10h2v10H4zm5-6h2v16H9zm5 3h2v13h-2zm5-5h2v18h-2z"/></svg>
     </button>
@@ -166,6 +169,19 @@
     <canvas class="spectrum-canvas" id="spectrumCanvas"></canvas>
   </div>
 </div>
+<div class="lyrics-overlay" id="lyricsOverlay">
+  <div class="lyrics-content">
+    <button class="lyrics-close" id="lyricsClose">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="m12 10.59 4.95-4.95 1.41 1.41-4.95 4.95 4.95 4.95-1.41 1.41-4.95-4.95-4.95 4.95-1.41-1.41 4.95-4.95-4.95-4.95 1.41-1.41z"/></svg>
+    </button>
+    <canvas class="lyrics-canvas" id="lyricsCanvas"></canvas>
+    <div class="lyrics-empty" id="lyricsEmpty">
+      <svg viewBox="0 0 24 24" width="40" height="40"><path fill="currentColor" d="M4 6H2v14a2 2 0 0 0 2 2h14v-2H4V6zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0 14H8V4h12v12zm-2-9h-8v2h8V5zm-8 4h5v2H8V9zm0 5h8v2H8v-2z"/></svg>
+      <p>未找到魔法书</p>
+      <span>将 .lrc 文件放在音频同目录，或确保音频内嵌了魔法书标签</span>
+    </div>
+  </div>
+</div>
 <div class="settings-overlay" id="settingsOverlay">
   <div class="settings-panel">
     <div class="settings-header">
@@ -178,6 +194,16 @@
       <span>开机自启</span>
       <input type="checkbox" id="autostartCheck"/>
     </label>
+    <div class="settings-row">
+      <span>配色方案</span>
+      <select id="lyricsColorScheme" style="font-family:var(--font);font-size:13px;padding:4px 8px;background:var(--surface-2);border:0;color:var(--text);cursor:pointer;">
+        <option value="4">Default</option>
+        <option value="1">Bridge</option>
+        <option value="2">Stellar</option>
+        <option value="3">Hypr</option>
+        <option value="5">Rdm</option>
+      </select>
+    </div>
   </div>
 </div>
 <audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>

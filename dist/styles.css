@@ -757,16 +757,16 @@ body { display: flex; flex-direction: column; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
-  max-width: 760px;
+  gap: 36px;
+  max-width: 900px;
   width: 100%;
   position: relative;
 }
 
 .spectrum-close {
   position: absolute;
-  top: -12px;
-  right: -12px;
+  top: 0;
+  right: 0;
   width: 40px; height: 40px;
   display: grid;
   place-items: center;
@@ -774,31 +774,95 @@ body { display: flex; flex-direction: column; }
   background: var(--surface);
   color: var(--accent);
   cursor: pointer;
+  z-index: 10;
   transition: color var(--transition), transform var(--transition);
 }
 
 .spectrum-close:hover { color: var(--text); transform: rotate(90deg); }
 
 .spectrum-art {
-  width: 140px; height: 140px;
+  width: 200px; height: 200px;
   display: grid;
   place-items: center;
-  font-size: 44px;
+  font-size: 60px;
   font-weight: 700;
   background: var(--surface-2);
   color: var(--text);
 }
 
 .spectrum-info { text-align: center; }
-.spectrum-info h3 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-.spectrum-info p { font-size: 13px; color: var(--text-3); }
+.spectrum-info h3 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.spectrum-info p { font-size: 15px; color: var(--text-3); }
 
 .spectrum-canvas {
   width: 100%;
-  height: 120px;
+  height: 180px;
   display: block;
-  margin-top: 12px;
+  margin-top: 16px;
 }
+
+/* ===== LYRICS OVERLAY ===== */
+.lyrics-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lyrics-overlay.active {
+  display: flex;
+  animation: fade .4s var(--transition);
+}
+
+.lyrics-content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.lyrics-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px; height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  z-index: 10;
+  transition: color var(--transition), transform var(--transition);
+}
+.lyrics-close:hover { color: var(--text); transform: rotate(90deg); }
+
+.lyrics-canvas {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lyrics-empty {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+.lyrics-empty.show { display: flex; }
+.lyrics-empty p { font-size: 18px; color: var(--text-2); font-weight: 600; }
+.lyrics-empty span { font-size: 13px; color: var(--text-3); }
 
 /* ===== SETTINGS PANEL ===== */
 .settings-overlay {

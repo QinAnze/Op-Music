@@ -315,6 +315,62 @@ pub fn export_favorites_zip(paths: Vec<String>, dest: String) -> Result<(), Stri
     Ok(())
 }
 
+/// Read embedded cover art from audio file, return as base64 data URL
+#[tauri::command]
+pub fn read_cover_art(path: String) -> Result<Option<String>, String> {
+    use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+    use lofty::prelude::*;
+    use lofty::probe::Probe;
+
+    let probe = Probe::open(&path).map_err(|e| format!("open: {}", e))?;
+    let tagged = probe.read().map_err(|e| format!("read: {}", e))?;
+    let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
+
+    if let Some(tag) = tag {
+        let pics = tag.pictures();
+        if let Some(pic) = pics.first() {
+            let mime = pic.mime_type().map(|m| m.to_string()).unwrap_or_else(|| "image/jpeg".to_string());
+            let b64 = BASE64.encode(pic.data());
+            return Ok(Some(format!("data:{};base64,{}", mime, b64)));
+        }
+    }
+    Ok(None)
+}
+
+/// Read lyrics from audio file metadata (ID3/USLT, Vorbis LYRICS, or .lrc sidecar)
+#[tauri::command]
+pub fn read_lyrics(path: String) -> Result<String, String> {
+    use lofty::prelude::*;
+    use lofty::probe::Probe;
+
+    // Try embedded lyrics via lofty
+    if let Ok(probe) = Probe::open(&path) {
+        if let Ok(tagged) = probe.read() {
+            if let Some(tag) = tagged.primary_tag().or_else(|| tagged.first_tag()) {
+                // Iterate over all items looking for lyrics
+                for item in tag.items() {
+                    let key_str = format!("{:?}", item.key()).to_lowercase();
+                    if key_str.contains("lyrics") || key_str.contains("lyric") {
+                        if let Some(val) = item.value().text() {
+                            let text = val.trim().to_string();
+                            if !text.is_empty() { return Ok(text); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: .lrc sidecar file (same name as audio)
+    let lrc_path = std::path::Path::new(&path).with_extension("lrc");
+    if lrc_path.exists() {
+        return std::fs::read_to_string(&lrc_path)
+            .map_err(|e| format!("Failed to read .lrc: {}", e));
+    }
+
+    Ok(String::new())
+}
+
 /// Clear all user data: scan dirs, favorites, and in-memory state
 #[tauri::command]
 pub fn clear_all_data(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {

@@ -41,6 +41,8 @@ pub fn run() {
             commands::save_favorites,
             commands::load_favorites,
             commands::clear_all_data,
+            commands::read_lyrics,
+            commands::read_cover_art,
             commands::get_autostart,
             commands::set_autostart,
             commands::export_favorites_zip,
