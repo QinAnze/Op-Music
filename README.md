@@ -31,6 +31,10 @@
 
 ## 快速开始
 
+releases内压缩包解压后双击.exe即可使用。目前仅支持Windows端。
+
+或：
+
 ```bash
 cd src-tauri
 cargo run
@@ -58,9 +62,6 @@ opmusic-ds/
 
 ## 构建发布
 
-releases内压缩包解压后双击.exe即可使用。
-
-或：
 
 ```bash
 cargo install tauri-cli
