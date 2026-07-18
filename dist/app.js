@@ -98,15 +98,19 @@ function playSong(s){
   updateLikeBtn();
   updateSpectrumInfo();
   // Pre-generate spectrum colors once per song (avoids flicker with Rdm)
-  var colors=getLyricsColors();
-  _specColors=[];
-  for(var si=0;si<SPEC_N;si++){
-    if(colors.length===1 && colors[0]==='__RANDOM__'){
-      _specColors.push('#'+Math.floor(Math.random()*0xFFFFFF).toString(16).padStart(6,'0'));
-    } else {
-      _specColors.push(colors[si%colors.length]);
+  _coverPalette = null; // reset for new song
+  function genSpecColors(){
+    var colors=getLyricsColors();
+    _specColors=[];
+    for(var si=0;si<SPEC_N;si++){
+      if(colors.length===1 && colors[0]==='__RANDOM__'){
+        _specColors.push('#'+Math.floor(Math.random()*0xFFFFFF).toString(16).padStart(6,'0'));
+      } else {
+        _specColors.push(colors[si%colors.length]);
+      }
     }
   }
+  genSpecColors();
   // Load embedded cover art
   $('nowPlayingArt').style.backgroundImage = '';
   $('nowPlayingInitials').style.display = '';
@@ -116,6 +120,13 @@ function playSong(s){
       $('nowPlayingArt').style.backgroundImage = 'url('+dataUrl+')';
       $('nowPlayingArt').style.backgroundSize = 'cover';
       $('nowPlayingInitials').style.display = 'none';
+      // Extract palette from cover for Cover scheme, regenerate spectrum colors when ready
+      _coverPalette = null;
+      if(_lyricsScheme==='6') {
+        extractCoverPaletteAsync(dataUrl, function(){
+          if(_coverPalette && _coverPalette.length>0) genSpecColors();
+        });
+      }
       // Also update spectrum art if open
       if($('spectrumOverlay').classList.contains('active')){
         $('spectrumArt').style.backgroundImage = 'url('+dataUrl+')';
@@ -287,13 +298,64 @@ var _lyricsFontFam='';      // cached font family
 try{ _lyricsScheme=localStorage.getItem('op_ds_lyrics_scheme')||'4'; }catch(e){}
 $('lyricsColorScheme').value = _lyricsScheme;
 
+var _coverPalette=null; // cached palette from cover art
+
+function extractCoverPaletteAsync(dataUrl, callback){
+  var img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=function(){
+    try{
+      var c=document.createElement('canvas');
+      c.width=20; c.height=20;
+      var ctx=c.getContext('2d');
+      ctx.drawImage(img,0,0,20,20);
+      var data=ctx.getImageData(0,0,20,20).data;
+      var map={};
+      for(var i=0;i<data.length;i+=4){
+        var r=Math.round(data[i]/32)*32;
+        var g=Math.round(data[i+1]/32)*32;
+        var b=Math.round(data[i+2]/32)*32;
+        var key=r+','+g+','+b;
+        map[key]=(map[key]||0)+1;
+      }
+      var sorted=Object.keys(map).sort(function(a,b){ return map[b]-map[a]; });
+      var palette=[];
+      for(var j=0;j<Math.min(4,sorted.length);j++){
+        var parts=sorted[j].split(',');
+        palette.push('#'+parseInt(parts[0]).toString(16).padStart(2,'0')
+                         +parseInt(parts[1]).toString(16).padStart(2,'0')
+                         +parseInt(parts[2]).toString(16).padStart(2,'0'));
+      }
+      if(palette.length>0) _coverPalette=palette;
+    }catch(e){}
+    if(callback) callback();
+  };
+  img.onerror=function(){ if(callback) callback(); };
+  img.src=dataUrl;
+}
+
+function getCoverPaletteSync(){
+  // Try to read from already-loaded cover in now-playing-art
+  var np=$('nowPlayingArt');
+  var bg=np.style.backgroundImage;
+  if(!bg||bg==='none') return null;
+  return _coverPalette;
+}
+
 function getLyricsColors(){
   var scheme = _lyricsScheme || '4';
   if(scheme==='1') return ['#74d7ee','#ffafc8'];
   if(scheme==='2') return ['#8cbfb0','#eea837','#9b2d25','#8b8e8d'];
   if(scheme==='3') return ['#ff00f0','#fffa00','#00ffa2'];
-  if(scheme==='5') return ['__RANDOM__']; // per-word random
-  // Scheme 4 (default): pure black on light, pure white on blue
+  if(scheme==='5') return ['__RANDOM__'];
+  if(scheme==='6'){
+    var pal=getCoverPaletteSync();
+    if(pal && pal.length>0) return pal;
+    // Fallback to default
+    var bg2=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    return bg2==='#2f55cb'?['#ffffff']:['#1c1917'];
+  }
+  // Scheme 4 (default)
   var bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
   if(bg==='#2f55cb') return ['#ffffff'];
   return ['#1c1917'];
@@ -924,9 +986,7 @@ function init(){
   // Settings panel
   $('settingsBtn').addEventListener('click',function(){
     $('settingsOverlay').classList.add('active');
-    // Refresh autostart state
-    invoke('get_autostart').then(function(on){ $('autostartCheck').checked = !!on; })
-      .catch(function(){});
+    invoke('get_autostart').then(function(on){ $('autostartCheck').checked = !!on; }).catch(function(){});
   });
   $('settingsClose').addEventListener('click',function(){ $('settingsOverlay').classList.remove('active'); });
   $('settingsOverlay').addEventListener('click',function(e){ if(e.target===this) $('settingsOverlay').classList.remove('active'); });
