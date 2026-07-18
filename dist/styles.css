@@ -1,4 +1,10 @@
 /* ===== Serif · Monochrome · Borderless ===== */
+@font-face {
+  font-family: 'HFIntimate';
+  src: url('HFIntimate-2.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
 :root {
   --bg: #fafaf9;
   --surface: #ffffff;
@@ -73,13 +79,14 @@ body { display: flex; flex-direction: column; }
 }
 
 .logo-musica {
-  font-family: "Edwardian Script ITC", "Palace Script MT", "Script MT Bold", "Segoe Script", "Brush Script MT", cursive;
-  font-size: 30px;
+  font-family: "HFIntimate", "Edwardian Script ITC", cursive;
+  font-size: 20px;
   color: var(--text-2);
   margin-top: 4px;
   text-align: center;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .nav {

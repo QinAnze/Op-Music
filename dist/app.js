@@ -127,10 +127,17 @@ function playSong(s){
 
   // Load via Rust base64 data URL — same pattern as original fetch()
   console.log('Loading audio:', s.path);
-  $('nowPlayingTitle').textContent = s.title + ' ⏳';
+  var spinnerFrames=['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧'];
+  var spinnerIdx=0, spinnerEl=$('nowPlayingTitle');
+  spinnerEl.textContent = s.title + ' ⠋';
+  var spinnerId=setInterval(function(){
+    spinnerIdx=(spinnerIdx+1)%spinnerFrames.length;
+    if(spinnerEl) spinnerEl.textContent = s.title + ' ' + spinnerFrames[spinnerIdx];
+  }, 80);
 
   invoke('read_audio_data_url', { path: s.path }).then(function(dataUrl){
     if(!cur||cur.id!==s.id) return;
+    clearInterval(spinnerId);
     console.log('Data URL received, length:', dataUrl.length);
     audio.src = dataUrl;
     audio.volume = vol;
@@ -141,9 +148,11 @@ function playSong(s){
     return audio.play();
   }).then(function(){
     if(!cur || cur.id!==s.id) return;
+    clearInterval(spinnerId);
     console.log('Playback started:', cur.title);
     $('nowPlayingTitle').textContent = cur.title;
   }).catch(function(e){
+    clearInterval(spinnerId);
     console.warn('Play failed:', e && e.message);
     if(!cur || cur.id!==s.id) return;
     usingAudio = false;
