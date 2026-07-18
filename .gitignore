@@ -4,3 +4,5 @@ src-tauri/gen/
 Thumbs.db
 *.swp
 *.swo
+releases/*.exe
+releases/*.dll

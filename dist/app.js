@@ -27,8 +27,10 @@ var EMOJI = [];
 function remoji(seed){ return EMOJI[Math.abs(seed) % EMOJI.length]; }
 function fmt(s){ if(!s||isNaN(s)) return '0:00'; return Math.floor(s/60)+':'+(Math.floor(s%60)<10?'0':'')+Math.floor(s%60); }
 var cur=null, queue=[], idx=-1, playing=false, vol=0.7, prog=0, dur=0, poff=0, usingAudio=false;
+var _prevPlayingRow=null; // track previous .playing row for O(1) toggle
 var _playGen=0, _progGen=0, loved=[], allPls=[], currentPlId='all';
 var specVals=null, specRAF=null, analyser=null, actx=null, specData=null, _specColors=null;
+var _loadSpinnerId=null; // global spinner handle
 var SPEC_N=32;
 // Favorites: stored as file paths on disk via Rust, auto-cleaned of stale files
 // Normalize path for comparison: lowercase + forward slashes (Windows is case-insensitive)
@@ -79,6 +81,7 @@ function updateSpectrumInfo(){
 function playSong(s){
   if(!s) return;
   if(cur && cur.id===s.id && playing) return;
+  if(_loadSpinnerId){ clearInterval(_loadSpinnerId); _loadSpinnerId=null; }
   cur=s; idx=-1;
   for(var i=0;i<queue.length;i++) if(queue[i].id===s.id){ idx=i; break; }
   dur = s.duration||240; prog=0; poff=0;
@@ -88,8 +91,10 @@ function playSong(s){
   $('totalTime').textContent = fmt(dur);
   $('currentTime').textContent = '0:00';
   $('progressFill').style.width = '0%';
-  var rows = document.querySelectorAll('.song-row');
-  for(var r=0;r<rows.length;r++) rows[r].classList.toggle('playing', Number(rows[r].dataset.id)===s.id);
+  // O(1) playing-row toggle
+  if(_prevPlayingRow) _prevPlayingRow.classList.remove('playing');
+  var newRow=document.querySelector('.song-row[data-id="'+s.id+'"]');
+  if(newRow){ newRow.classList.add('playing'); _prevPlayingRow=newRow; }
   usingAudio = false;
   if(audio){ audio.pause(); try{audio.removeAttribute('src');audio.load();}catch(e){} }
   playing=true; $('playIcon').style.display='none'; $('pauseIcon').style.display='block';
@@ -141,14 +146,14 @@ function playSong(s){
   var spinnerFrames=['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧'];
   var spinnerIdx=0, spinnerEl=$('nowPlayingTitle');
   spinnerEl.textContent = s.title + ' ⠋';
-  var spinnerId=setInterval(function(){
+  _loadSpinnerId=setInterval(function(){
     spinnerIdx=(spinnerIdx+1)%spinnerFrames.length;
     if(spinnerEl) spinnerEl.textContent = s.title + ' ' + spinnerFrames[spinnerIdx];
   }, 80);
 
   invoke('read_audio_data_url', { path: s.path }).then(function(dataUrl){
     if(!cur||cur.id!==s.id) return;
-    clearInterval(spinnerId);
+    clearInterval(_loadSpinnerId);
     console.log('Data URL received, length:', dataUrl.length);
     audio.src = dataUrl;
     audio.volume = vol;
@@ -159,11 +164,11 @@ function playSong(s){
     return audio.play();
   }).then(function(){
     if(!cur || cur.id!==s.id) return;
-    clearInterval(spinnerId);
+    clearInterval(_loadSpinnerId);
     console.log('Playback started:', cur.title);
     $('nowPlayingTitle').textContent = cur.title;
   }).catch(function(e){
-    clearInterval(spinnerId);
+    clearInterval(_loadSpinnerId);
     console.warn('Play failed:', e && e.message);
     if(!cur || cur.id!==s.id) return;
     usingAudio = false;
@@ -262,23 +267,6 @@ function seekVol(e){
 }
 
 // ---- Spectrum ----
-function fakeSpec(t){
-  var a=[], bpm=128, beat=(t*bpm/60)%1;
-  var kick=Math.exp(-beat*10)*0.8, snare=Math.exp(-((beat+0.5)%1)*12)*0.5;
-  var hihat=((beat*4)%1<0.15)?Math.random()*0.3:0;
-  for(var i=0;i<SPEC_N;i++){
-    var x=i/SPEC_N;
-    var low=kick*Math.exp(-x*6)*(x<0.18?1:0.15);
-    var bass=Math.exp(-Math.pow((x-0.12)*8,2))*kick*0.5;
-    var mel=Math.sin(t*4.7+i*0.5)*0.12+Math.sin(t*2.3+i*0.23)*0.08+Math.random()*0.06;
-    var mid=(0.22+mel)*Math.exp(-Math.pow((x-0.32)*3.5,2));
-    var harm=Math.sin(t*6.1+i*1.1)*0.08*Math.exp(-Math.pow((x-0.5)*4,2));
-    var hi=(snare+hihat)*Math.random()*0.4*(x>0.55?1:0.05);
-    var env=Math.exp(-x*1.8)*0.15;
-    a.push(Math.max(0,Math.min(1,low+bass+mid+harm+hi+env)));
-  }
-  return a;
-}
 function openSpectrum(){
   if(!cur) return;
   updateSpectrumInfo();

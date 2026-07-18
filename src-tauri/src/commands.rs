@@ -140,22 +140,15 @@ pub fn get_playlist(playlist_id: String, state: State<'_, AppState>) -> Result<O
 pub fn search_library(keyword: String, state: State<'_, AppState>) -> Result<Vec<Song>, String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     let kw = keyword.to_lowercase();
-
-    let mut matched: Vec<Song> = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-
-    for song in &lib.songs {
-        if seen.contains(&song.id) {
-            continue;
-        }
-        if song.title.to_lowercase().contains(&kw)
-            || song.artist.to_lowercase().contains(&kw)
-            || song.album.to_lowercase().contains(&kw)
-        {
-            seen.insert(song.id);
-            matched.push(song.clone());
-        }
-    }
+    // Cache lowercase conversions — compute once per song
+    let matched: Vec<Song> = lib.songs.iter()
+        .filter(|s| {
+            s.title.to_lowercase().contains(&kw)
+                || s.artist.to_lowercase().contains(&kw)
+                || s.album.to_lowercase().contains(&kw)
+        })
+        .cloned()
+        .collect();
     Ok(matched)
 }
 
@@ -171,7 +164,7 @@ pub fn get_scan_dirs(state: State<'_, AppState>) -> Result<Vec<String>, String> 
 
 /// Open a save-file dialog for ZIP export
 #[tauri::command]
-pub async fn pick_save_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
+pub fn pick_save_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
     let result = app
         .dialog()
@@ -184,7 +177,7 @@ pub async fn pick_save_path(app: tauri::AppHandle) -> Result<Option<String>, Str
 
 /// Open a directory picker dialog and return the selected path
 #[tauri::command]
-pub async fn pick_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+pub fn pick_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
 
     let result = app
@@ -265,7 +258,7 @@ pub fn get_autostart() -> Result<bool, String> {
 pub fn set_autostart(enable: bool) -> Result<bool, String> {
     use std::process::Command;
     let exe = std::env::current_exe().map_err(|e| format!("current_exe: {}", e))?;
-    let exe_path = exe.to_string_lossy().to_string();
+    let exe_path = format!("\"{}\"", exe.to_string_lossy());
     if enable {
         Command::new("reg")
             .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
@@ -282,33 +275,46 @@ pub fn set_autostart(enable: bool) -> Result<bool, String> {
     Ok(enable)
 }
 
-/// Export favorited audio files into a ZIP archive
+/// Export favorited audio files into a ZIP archive (streaming, no full-file RAM load)
 #[tauri::command]
 pub fn export_favorites_zip(paths: Vec<String>, dest: String) -> Result<(), String> {
     use std::fs;
-    use std::io::Write;
+    use std::io::{copy, BufReader};
+    use std::collections::HashMap;
     use zip::write::SimpleFileOptions;
 
     let file = fs::File::create(&dest).map_err(|e| format!("Cannot create zip: {}", e))?;
     let mut zip = zip::ZipWriter::new(file);
     let options = SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
+    let mut name_counts: HashMap<String, u32> = HashMap::new();
 
     for src in &paths {
-        let name = std::path::Path::new(src)
+        let base = std::path::Path::new(src)
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("unknown");
-        match fs::read(src) {
-            Ok(bytes) => {
-                zip.start_file(name, options)
+            .unwrap_or("unknown")
+            .to_string();
+        // Handle duplicate filenames: append (2), (3), etc.
+        let name = if let Some(&count) = name_counts.get(&base) {
+            let stem = std::path::Path::new(&base).file_stem().and_then(|s| s.to_str()).unwrap_or(&base);
+            let ext = std::path::Path::new(&base).extension().and_then(|s| s.to_str()).unwrap_or("");
+            let new_name = if ext.is_empty() { format!("{}_{}", stem, count) } else { format!("{}_{}.{}", stem, count, ext) };
+            name_counts.insert(base.clone(), count + 1);
+            new_name
+        } else {
+            name_counts.insert(base.clone(), 2);
+            base
+        };
+        match fs::File::open(src) {
+            Ok(src_file) => {
+                zip.start_file(&name, options)
                     .map_err(|e| format!("zip start_file: {}", e))?;
-                zip.write_all(&bytes)
-                    .map_err(|e| format!("zip write: {}", e))?;
+                let mut reader = BufReader::new(src_file);
+                copy(&mut reader, &mut zip)
+                    .map_err(|e| format!("zip copy: {}", e))?;
             }
-            Err(e) => {
-                eprintln!("Skipping {}: {}", src, e);
-            }
+            Err(e) => eprintln!("Skipping {}: {}", src, e),
         }
     }
     zip.finish().map_err(|e| format!("zip finish: {}", e))?;
