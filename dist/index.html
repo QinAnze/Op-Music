@@ -16,7 +16,7 @@
 ██║   ██║██╔═══╝ ██║   ██║╚════██║
 ╚██████╔╝██║     ╚██████╔╝███████║
  ╚═════╝ ╚═╝      ╚═════╝ ╚══════╝</pre>
-      <div class="logo-musica">Música</div>
+      <div class="logo-musica">Música by Robin</div>
     </div>
     <nav class="nav">
       <button class="nav-item active" data-view="discover">
@@ -52,6 +52,17 @@
         <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M10 2a8 8 0 1 1-4.9 14.32L1 20.41 2.41 19l4.09-4.09A8 8 0 0 1 10 2zm0 2a6 6 0 1 0 4.24 10.24l.7-.7A6 6 0 0 0 10 4z"/></svg>
         <input type="text" id="searchInput" placeholder="搜索本地音乐..." autocomplete="off"/>
       </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="themeBtn" title="切换皮肤">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm0 1v14a7 7 0 0 0 0-14z"/></svg>
+        </button>
+        <button class="icon-btn" id="clearCacheBtn" title="清除所有导入记录和收藏">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm2.46-7.12 1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>
+        </button>
+        <a class="icon-btn" id="githubBtn" href="https://github.com/QinAnze/Op-Music" target="_blank" title="GitHub">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
     </header>
     <!-- Onboarding state — shown when no music is scanned -->
     <div class="onboarding" id="onboarding">
@@ -76,7 +87,7 @@
               播放全部
             </button>
             <button class="btn-icon" id="shuffleBtn" title="随机播放">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M17 3l4 4-4 4v-3h-2.26l-2.14 4.28 2.14 4.28H17v-3l4 4-4 4v-3h-3.12L10.72 14l-1.14 2.28L10.72 18H13v3l-4-4 4-4v3h2.26l2.14-4.28-2.14-4.28H13V3z"/></svg>
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 3h18v18H3V3zm2 2v14h14V5H5zm4 3h6v2H9V8zm0 4h6v2H9v-2zm.5 1h2v3h-2v-3zm3 0h2v3h-2v-3z"/></svg>
             </button>
           </div>
         </div>

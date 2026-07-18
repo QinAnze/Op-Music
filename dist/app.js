@@ -30,10 +30,26 @@ var cur=null, queue=[], idx=-1, playing=false, vol=0.7, prog=0, dur=0, poff=0, u
 var _playGen=0, _progGen=0, loved=[], allPls=[], currentPlId='all';
 var specVals=null, specRAF=null, specColor=null, analyser=null, actx=null, specData=null;
 var SPEC_N=32;
-try{ loved=JSON.parse(localStorage.getItem('op_ds_loved')||'[]'); }catch(e){ loved=[]; }
-function saveLoved(){ try{localStorage.setItem('op_ds_loved',JSON.stringify(loved));}catch(e){} }
+// Favorites: stored as file paths on disk via Rust, auto-cleaned of stale files
+// Normalize path for comparison: lowercase + forward slashes (Windows is case-insensitive)
+function normPath(p){ return (p||'').replace(/\\/g,'/').toLowerCase(); }
+function lovedHas(p){ return loved.some(function(x){ return normPath(x)===normPath(p); }); }
+
+function saveLoved(){
+  invoke('save_favorites',{paths:loved}).catch(function(e){ console.warn('save_favorites failed:',e); });
+}
+function loadLoved(){
+  return invoke('load_favorites').then(function(paths){
+    loved = paths || [];
+  }).catch(function(e){
+    console.warn('load_favorites failed:', e);
+    loved = [];
+  });
+}
 var audio = $('audioPlayer');
-function cmdScan(dirs){ return invoke('scan_directories',{dirs:dirs}); }
+function cmdAddScanDir(dir){ return invoke('add_scan_dir',{dir:dir}); }
+function cmdRemoveScanDir(dir){ return invoke('remove_scan_dir',{dir:dir}); }
+function cmdScanAll(){ return invoke('scan_all_dirs'); }
 function cmdLibrary(){ return invoke('get_library',{}); }
 function cmdPlaylist(id){ return invoke('get_playlist',{playlistId:id}); }
 function cmdSearch(kw){ return invoke('search_library',{keyword:kw}); }
@@ -42,7 +58,7 @@ function cmdStats(){ return invoke('get_library_stats',{}); }
 
 // ---- Playback ----
 function updateLikeBtn(){
-  var btn=$('likeBtn'); if(btn) btn.classList.toggle('liked', cur && loved.indexOf(cur.id)>=0);
+  var btn=$('likeBtn'); if(btn) btn.classList.toggle('liked', cur && lovedHas(cur.path));
 }
 function updateSpectrumInfo(){
   if(!cur) return;
@@ -62,12 +78,7 @@ function playSong(s){
   $('nowPlayingInitials').textContent = remoji(s.id);
   $('totalTime').textContent = fmt(dur);
   $('currentTime').textContent = '0:00';
-  // Disable transition for instant reset, then re-enable
-  var pf=$('progressFill'), pt=$('progressThumb');
-  pf.style.transition = 'none'; pt.style.transition = 'none';
-  pf.style.width = '0%'; pt.style.left = '0%';
-  void pf.offsetWidth; // force reflow so the instant reset is painted
-  pf.style.transition = ''; pt.style.transition = '';
+  $('progressFill').style.width = '0%';
   var rows = document.querySelectorAll('.song-row');
   for(var r=0;r<rows.length;r++) rows[r].classList.toggle('playing', Number(rows[r].dataset.id)===s.id);
   usingAudio = false;
@@ -104,6 +115,19 @@ function playSong(s){
   });
 }
 var pT=null;
+var _progressRAF=null;
+function progressLoop(){
+  if(!playing||!cur||_progGen!==_playGen){ _progressRAF=null; return; }
+  _progressRAF=requestAnimationFrame(progressLoop);
+  prog=audio.currentTime;
+  if(audio.duration&&!isNaN(audio.duration)) dur=audio.duration;
+  poff=prog;
+  var p=dur?(prog/dur)*100:0;
+  $('progressFill').style.width=p+'%';
+  $('currentTime').textContent=fmt(prog);
+}
+function startProgressLoop(){ if(!_progressRAF){ _progressRAF=requestAnimationFrame(progressLoop); } }
+function stopProgressLoop(){ if(_progressRAF){ cancelAnimationFrame(_progressRAF); _progressRAF=null; } }
 function startProg(){
   stopProg();
   if(usingAudio) return;
@@ -115,12 +139,11 @@ function startProg(){
     prog=e;
     var p=dur?(prog/dur)*100:0;
     $('progressFill').style.width=p+'%';
-    $('progressThumb').style.left=p+'%';
     $('currentTime').textContent=fmt(prog);
     pT=requestAnimationFrame(tick);
   })();
 }
-function stopProg(){ if(pT){ cancelAnimationFrame(pT); pT=null; } }
+function stopProg(){ if(pT){ cancelAnimationFrame(pT); pT=null; } stopProgressLoop(); }
 function ensureAnalyser(){
   if(analyser) return;
   try{
@@ -173,7 +196,6 @@ function seekProg(e){
   if(usingAudio && audio && audio.src) audio.currentTime=prog;
   var pct=p*100;
   $('progressFill').style.width=pct+'%';
-  $('progressThumb').style.left=pct+'%';
   $('currentTime').textContent=fmt(prog);
 }
 function seekVol(e){
@@ -221,7 +243,11 @@ function specLoop(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
   if(!specVals) specVals = new Float32Array(SPEC_N);
-  if(!specColor) specColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#1c1917';
+  if(!specColor) specColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#1c1917';
+  else {
+    // Re-read color each frame in case theme changed
+    specColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#ffffff';
+  }
   ctx.fillStyle = specColor;
   var real = analyser && usingAudio;
   if(real) analyser.getByteFrequencyData(specData);
@@ -270,10 +296,10 @@ function switchPlaylist(id){
 function showFavorites(){
   var matched=[], libSongs=[];
   for(var i=0;i<allPls.length;i++) libSongs=libSongs.concat(allPls[i].songs);
-  for(var j=0;j<libSongs.length;j++) if(loved.indexOf(libSongs[j].id)>=0) matched.push(libSongs[j]);
-  // dedup
+  for(var j=0;j<libSongs.length;j++) if(lovedHas(libSongs[j].path)) matched.push(libSongs[j]);
+  // dedup by normalized path
   var seen={}, uniq=[];
-  for(var k=0;k<matched.length;k++){ if(!seen[matched[k].id]){ seen[matched[k].id]=true; uniq.push(matched[k]); } }
+  for(var k=0;k<matched.length;k++){ var np=normPath(matched[k].path); if(!seen[np]){ seen[np]=true; uniq.push(matched[k]); } }
   var pl={id:'fav',name:'收藏夹',letter:'♥',songs:uniq};
   var items=document.querySelectorAll('.playlist-item');
   for(var m=0;m<items.length;m++) items[m].classList.toggle('active', items[m].dataset.id==='fav');
@@ -389,27 +415,14 @@ function rebuildSidebar(playlists){
   }
 }
 
-async function scanFolder(path){
-  try{
-    var result = await cmdScan([path]);
-    rebuildSidebar(result.playlists);
-    return result;
-  }catch(e){
-    console.warn('Scan failed:', e);
-    return null;
-  }
-}
-
 async function addFolder(){
-  // For now, prompt for path. In Tauri, we could use the dialog plugin.
-  // But dialog in Tauri v2 with folder picking requires the dialog plugin
-  // which we have registered. Let's check if it's available.
   try{
     var result = await invoke('pick_folder',{});
     if(result){
       $('searchInput').placeholder = '正在扫描 ' + result + ' ...';
-      var scanResult = await scanFolder(result);
-      if(scanResult){
+      var scanResult = await cmdAddScanDir(result);
+      if(scanResult && scanResult.playlists){
+        rebuildSidebar(scanResult.playlists);
         $('searchInput').placeholder = '搜索本地音乐...';
       } else {
         $('searchInput').placeholder = '未找到音频文件';
@@ -417,12 +430,12 @@ async function addFolder(){
       }
     }
   }catch(e){
-    // Fallback: use prompt
     var path = prompt('请输入音乐文件夹路径:');
     if(path){
       $('searchInput').placeholder = '正在扫描...';
-      var scanResult = await scanFolder(path);
-      if(scanResult){
+      var scanResult = await cmdAddScanDir(path);
+      if(scanResult && scanResult.playlists){
+        rebuildSidebar(scanResult.playlists);
         $('searchInput').placeholder = '搜索本地音乐...';
       } else {
         $('searchInput').placeholder = '未找到音频文件';
@@ -433,11 +446,12 @@ async function addFolder(){
 }
 
 async function restoreSession(){
+  // Library is already built by Rust on startup from persisted dirs.
+  // Just fetch the current library to populate the sidebar.
   try{
-    var dirs = await cmdScanDirs();
-    if(dirs && dirs.length>0){
-      var result = await cmdScan(dirs);
-      rebuildSidebar(result.playlists);
+    var lib = await cmdLibrary();
+    if(lib && lib.playlists && lib.playlists.length > 0){
+      rebuildSidebar(lib.playlists);
     }
   }catch(e){
     console.warn('Restore session failed:', e);
@@ -446,20 +460,13 @@ async function restoreSession(){
 
 // ---- Event Listeners & Init ----
 function init(){
-  // Audio events — bind once, same as original
+  // Audio events — bind once, rAF progress functions at module level
   if(audio){
-    audio.addEventListener('timeupdate',function(){
-      if(_progGen!==_playGen||!cur) return;
-      prog=audio.currentTime;
-      if(audio.duration&&!isNaN(audio.duration)) dur=audio.duration;
-      poff=prog;
-      var p=dur?(prog/dur)*100:0;
-      $('progressFill').style.width=p+'%';
-      $('progressThumb').style.left=p+'%';
-      $('currentTime').textContent=fmt(prog);
-    });
-    audio.addEventListener('ended',function(){ if(cur) endSong(); });
+    audio.addEventListener('playing', startProgressLoop);
+    audio.addEventListener('pause', stopProgressLoop);
+    audio.addEventListener('ended',function(){ stopProgressLoop(); if(cur) endSong(); });
     audio.addEventListener('error',function(){
+      stopProgressLoop();
       console.warn('Audio error:', audio.error ? audio.error.message : 'unknown');
       if(cur){ usingAudio=false; }
     });
@@ -474,10 +481,11 @@ function init(){
   $('prevBtn').addEventListener('click',prevTrack);
   $('nextBtn').addEventListener('click',nextTrack);
   $('likeBtn').addEventListener('click',function(){
-    if(!cur) return;
-    var i=loved.indexOf(cur.id);
+    if(!cur || !cur.path) return;
+    var i=-1;
+    for(var n=0;n<loved.length;n++){ if(normPath(loved[n])===normPath(cur.path)){ i=n; break; } }
     if(i>=0) loved.splice(i,1);
-    else loved.push(cur.id);
+    else loved.push(cur.path);
     this.classList.toggle('liked',i<0);
     saveLoved();
     var fc=document.getElementById('favCount'); if(fc) fc.textContent=loved.length+' 首';
@@ -513,9 +521,50 @@ function init(){
     ns[n].addEventListener('click',function(){ switchView(v); });
   })(ns[n].dataset.view);
 
+  // Theme toggle
+  var currentTheme = 'light';
+  try { currentTheme = localStorage.getItem('op_ds_theme') || 'light'; } catch(e){}
+  if(currentTheme==='blue') document.documentElement.setAttribute('data-theme','blue');
+  $('themeBtn').addEventListener('click',function(){
+    if(currentTheme==='blue'){
+      document.documentElement.removeAttribute('data-theme');
+      currentTheme = 'light';
+    } else {
+      document.documentElement.setAttribute('data-theme','blue');
+      currentTheme = 'blue';
+    }
+    try { localStorage.setItem('op_ds_theme', currentTheme); } catch(e){}
+  });
+
   // Add folder buttons
   $('addFolderBtn').addEventListener('click',addFolder);
   $('onboardAddBtn').addEventListener('click',addFolder);
+
+  // Clear cache button
+  $('clearCacheBtn').addEventListener('click',function(){
+    if(!confirm('确定要清除所有导入记录和收藏吗？此操作不可撤销。')) return;
+    invoke('clear_all_data').then(function(){
+      loved = [];
+      allPls = [];
+      queue = [];
+      cur = null;
+      idx = -1;
+      playing = false;
+      usingAudio = false;
+      if(audio){ audio.pause(); try{audio.removeAttribute('src');audio.load();}catch(e){} }
+      $('playIcon').style.display='block'; $('pauseIcon').style.display='none';
+      $('nowPlayingArt').classList.remove('playing');
+      $('nowPlayingTitle').textContent = '未在播放';
+      $('nowPlayingArtist').textContent = '选择一首歌开始';
+      $('nowPlayingInitials').textContent = '♪';
+      $('songsList').innerHTML = '';
+      $('libraryGrid').innerHTML = '';
+      $('heroTitle').textContent = '全部歌曲';
+      $('heroDesc').textContent = '浏览你的音乐收藏';
+      rebuildSidebar([]);
+      updateOnboarding();
+    }).catch(function(e){ console.warn('clear_all_data failed:',e); });
+  });
 
   // Keyboard shortcuts
   document.addEventListener('keydown',function(e){
@@ -530,8 +579,13 @@ function init(){
   $('volumeFill').style.width=(vol*100)+'%';
   if(audio) audio.volume=vol;
 
-  // Restore session (scan previously selected folders)
-  restoreSession();
+  // Load favorites from disk FIRST (validates files exist, auto-removes stale),
+  // then restore library scan. This ensures favCount is correct from the start.
+  loadLoved().then(function(){
+    return restoreSession();
+  }).then(function(){
+    var fc=document.getElementById('favCount'); if(fc) fc.textContent=loved.length+' 首';
+  });
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);

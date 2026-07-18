@@ -13,6 +13,17 @@
   --transition: .2s cubic-bezier(.25,.46,.45,.94);
 }
 
+/* ===== Blue theme ===== */
+html[data-theme="blue"] {
+  --bg: #2f55cb;
+  --surface: #365ecf;
+  --surface-2: #2a4db8;
+  --text: #ffffff;
+  --text-2: rgba(255,255,255,0.72);
+  --text-3: rgba(255,255,255,0.45);
+  --accent: #ffffff;
+  --divider: rgba(255,255,255,0.12);
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -131,7 +142,7 @@ body { display: flex; flex-direction: column; }
   display: grid;
   place-items: center;
   border: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--accent);
   cursor: pointer;
   transition: background var(--transition), color var(--transition);
@@ -165,7 +176,7 @@ body { display: flex; flex-direction: column; }
   width: 32px; height: 32px;
   display: grid;
   place-items: center;
-  background: #fff;
+  background: var(--surface);
   color: var(--accent);
   font-size: 13px;
   font-weight: 700;
@@ -251,6 +262,19 @@ body { display: flex; flex-direction: column; }
 }
 
 .search-box input::placeholder { color: var(--text-3); }
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.topbar-actions .icon-btn {
+  text-decoration: none;
+}
+
+.topbar-actions .icon-btn:hover svg { opacity: 1; }
 
 /* ===== ONBOARDING / EMPTY STATE ===== */
 .onboarding {
@@ -338,7 +362,7 @@ body { display: flex; flex-direction: column; }
   align-items: center;
   gap: 8px;
   padding: 10px 22px;
-  background: #fff;
+  background: var(--surface);
   color: var(--accent);
   border: 0;
   font-size: 14px;
@@ -354,7 +378,7 @@ body { display: flex; flex-direction: column; }
   width: 40px; height: 40px;
   display: grid;
   place-items: center;
-  background: #fff;
+  background: var(--surface);
   border: 0;
   color: var(--accent);
   cursor: pointer;
@@ -413,9 +437,10 @@ body { display: flex; flex-direction: column; }
 
 .song-row.playing .song-num { color: var(--text); font-weight: 700; }
 
-.song-title-wrap { min-width: 0; }
+.song-title-wrap { min-width: 0; overflow: hidden; }
 
 .song-title {
+  display: block;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
@@ -424,11 +449,13 @@ body { display: flex; flex-direction: column; }
 }
 
 .song-artist, .song-album {
+  display: block;
   font-size: 13px;
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .song-dur {
@@ -525,7 +552,7 @@ body { display: flex; flex-direction: column; }
   flex-direction: column;
   gap: 6px;
   padding: 20px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .stat-num { font-size: 28px; font-weight: 700; }
@@ -560,7 +587,7 @@ body { display: flex; flex-direction: column; }
   width: 44px; height: 44px;
   display: grid;
   place-items: center;
-  background: #fff;
+  background: var(--surface);
   color: var(--accent);
   font-size: 18px;
   font-weight: 700;
@@ -645,7 +672,7 @@ body { display: flex; flex-direction: column; }
 
 .ctrl-play {
   width: 40px; height: 40px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text-3);
 }
 
@@ -682,7 +709,6 @@ body { display: flex; flex-direction: column; }
 .progress-fill {
   height: 100%;
   background: var(--accent);
-  transition: width .1s linear;
 }
 
 .progress-thumb {
@@ -745,7 +771,7 @@ body { display: flex; flex-direction: column; }
   display: grid;
   place-items: center;
   border: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--accent);
   cursor: pointer;
   transition: color var(--transition), transform var(--transition);

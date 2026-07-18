@@ -1,7 +1,7 @@
 use crate::scanner::{self, build_library, MusicLibrary, Song};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 
 /// Application state holding the music library (behind a mutex for interior mutability)
 pub struct AppState {
@@ -17,24 +17,100 @@ pub struct ScanResult {
 
 // ── Commands ──────────────────────────────────────────────
 
-/// Scan one or more directories and rebuild the library
+/// Add a new directory and rebuild the full library from ALL accumulated dirs
 #[tauri::command]
-pub fn scan_directories(dirs: Vec<String>, state: State<'_, AppState>) -> Result<ScanResult, String> {
-    let library = build_library(&dirs);
-
+pub fn add_scan_dir(dir: String, state: State<'_, AppState>, app: tauri::AppHandle) -> Result<ScanResult, String> {
+    // Accumulate: add new dir if not already present
+    let mut all_dirs = {
+        let sd = state.scan_dirs.lock().map_err(|e| e.to_string())?;
+        sd.clone()
+    };
+    if !all_dirs.contains(&dir) {
+        all_dirs.push(dir);
+    }
+    // Persist
+    persist_scan_dirs(&app, &all_dirs)?;
+    // Rebuild library from all directories
+    let library = build_library(&all_dirs);
     let result = ScanResult {
         songs_total: library.songs.len(),
         playlists: library.playlists.clone(),
     };
-
     if let Ok(mut sd) = state.scan_dirs.lock() {
-        *sd = dirs;
+        *sd = all_dirs;
     }
     if let Ok(mut lib) = state.library.lock() {
         *lib = library;
     }
-
     Ok(result)
+}
+
+/// Remove a directory and rebuild
+#[tauri::command]
+pub fn remove_scan_dir(dir: String, state: State<'_, AppState>, app: tauri::AppHandle) -> Result<ScanResult, String> {
+    let mut all_dirs = {
+        let sd = state.scan_dirs.lock().map_err(|e| e.to_string())?;
+        sd.clone()
+    };
+    all_dirs.retain(|d| d != &dir);
+    persist_scan_dirs(&app, &all_dirs)?;
+    let library = build_library(&all_dirs);
+    let result = ScanResult {
+        songs_total: library.songs.len(),
+        playlists: library.playlists.clone(),
+    };
+    if let Ok(mut sd) = state.scan_dirs.lock() {
+        *sd = all_dirs;
+    }
+    if let Ok(mut lib) = state.library.lock() {
+        *lib = library;
+    }
+    Ok(result)
+}
+
+/// Scan ALL accumulated directories (used on startup to restore session)
+#[tauri::command]
+pub fn scan_all_dirs(state: State<'_, AppState>) -> Result<ScanResult, String> {
+    let dirs = state.scan_dirs.lock().map_err(|e| e.to_string())?.clone();
+    let library = build_library(&dirs);
+    let result = ScanResult {
+        songs_total: library.songs.len(),
+        playlists: library.playlists.clone(),
+    };
+    if let Ok(mut lib) = state.library.lock() {
+        *lib = library;
+    }
+    Ok(result)
+}
+
+fn persist_scan_dirs(app: &tauri::AppHandle, dirs: &[String]) -> Result<(), String> {
+    use std::fs;
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    fs::create_dir_all(&data_dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
+    let path = data_dir.join("scan_dirs.json");
+    let json = serde_json::to_string(dirs).map_err(|e| format!("Failed to serialize: {}", e))?;
+    fs::write(&path, json).map_err(|e| format!("Failed to write scan dirs: {}", e))?;
+    Ok(())
+}
+
+pub fn load_persisted_scan_dirs(app: &tauri::AppHandle) -> Vec<String> {
+    use std::fs;
+    let data_dir = match app.path().app_data_dir() {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+    let path = data_dir.join("scan_dirs.json");
+    if !path.exists() {
+        return Vec::new();
+    }
+    let json = match fs::read_to_string(&path) {
+        Ok(j) => j,
+        Err(_) => return Vec::new(),
+    };
+    serde_json::from_str(&json).unwrap_or_default()
 }
 
 /// Return the current library
@@ -121,6 +197,60 @@ pub fn get_library_stats(state: State<'_, AppState>) -> Result<LibraryStats, Str
 pub struct LibraryStats {
     pub total_tracks: usize,
     pub total_playlists: usize,
+}
+
+/// Save favorites list to a file on disk (survives cache clears)
+#[tauri::command]
+pub fn save_favorites(paths: Vec<String>, app: tauri::AppHandle) -> Result<(), String> {
+    use std::fs;
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    fs::create_dir_all(&data_dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
+    let fav_path = data_dir.join("favorites.json");
+    let json = serde_json::to_string(&paths).map_err(|e| format!("Failed to serialize: {}", e))?;
+    fs::write(&fav_path, json).map_err(|e| format!("Failed to write favorites: {}", e))?;
+    Ok(())
+}
+
+/// Load favorites from disk, verifying each path still exists. Stale paths are auto-removed.
+#[tauri::command]
+pub fn load_favorites(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    use std::fs;
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    let fav_path = data_dir.join("favorites.json");
+    if !fav_path.exists() {
+        return Ok(Vec::new());
+    }
+    let json = fs::read_to_string(&fav_path).map_err(|e| format!("Failed to read favorites: {}", e))?;
+    let paths: Vec<String> =
+        serde_json::from_str(&json).map_err(|e| format!("Failed to parse favorites: {}", e))?;
+    // Keep only paths where the file still exists
+    let valid: Vec<String> = paths.into_iter().filter(|p| std::path::Path::new(p).exists()).collect();
+    // Persist the cleaned list
+    let cleaned = serde_json::to_string(&valid).map_err(|e| format!("Failed to serialize: {}", e))?;
+    let _ = fs::write(&fav_path, cleaned);
+    Ok(valid)
+}
+
+/// Clear all user data: scan dirs, favorites, and in-memory state
+#[tauri::command]
+pub fn clear_all_data(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    use std::fs;
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    let _ = fs::remove_file(data_dir.join("scan_dirs.json"));
+    let _ = fs::remove_file(data_dir.join("favorites.json"));
+    // Reset in-memory state
+    if let Ok(mut sd) = state.scan_dirs.lock() { sd.clear(); }
+    if let Ok(mut lib) = state.library.lock() { *lib = MusicLibrary { songs: Vec::new(), playlists: Vec::new() }; }
+    Ok(())
 }
 
 /// Read an audio file and return it as a base64 data URL (bypasses CSP/protocol issues)
