@@ -43,8 +43,17 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["SimpChinese", "English"]
+        "languages": ["SimpChinese", "English"],
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": true,
+        "startMenuFolder": "Op Music"
       }
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "opus", "aiff"],
+        "description": "Audio file supported by Op Music"
+      }
+    ]
   }
 }
