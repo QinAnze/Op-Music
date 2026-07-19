@@ -91,10 +91,8 @@ function playSong(s){
   $('totalTime').textContent = fmt(dur);
   $('currentTime').textContent = '0:00';
   $('progressFill').style.width = '0%';
-  // O(1) playing-row toggle
-  if(_prevPlayingRow) _prevPlayingRow.classList.remove('playing');
-  var newRow=document.querySelector('.song-row[data-id="'+s.id+'"]');
-  if(newRow){ newRow.classList.add('playing'); _prevPlayingRow=newRow; }
+  // Re-render visible portion to update playing highlight
+  if(_songListData.length) songListRender();
   usingAudio = false;
   if(audio){ audio.pause(); try{audio.removeAttribute('src');audio.load();}catch(e){} }
   playing=true; $('playIcon').style.display='none'; $('pauseIcon').style.display='block';
@@ -658,21 +656,62 @@ function specLoop(){
   }
 }
 
-// ---- Song list rendering ----
+// ---- Virtual-scrolled song list ----
+var _songListData=[], _songListEl=null, _songListRAF=null;
+var _songListRendered=[-1,-1]; // [start,end] cache to skip no-op renders
+var ROW_H=44, ROW_BUF=12;
+
+function renderSongRow(s, i){
+  var cls = 'song-row';
+  if(cur && cur.id===s.id) cls += ' playing';
+  return '<li class="'+cls+'" data-id="'+s.id+'" data-index="'+i+'" style="height:'+ROW_H+'px;"><span class="song-num">'+(i+1)+'</span><div class="song-title-wrap"><span class="song-title">'+s.title+'</span></div><span class="song-artist">'+(s.artist||'Unknown')+'</span><span class="song-album">'+(s.album||'--')+'</span><span class="song-dur">'+fmt(s.duration)+'</span></li>';
+}
+
 function renderSongs(pl){
   queue = pl.songs.slice();
+  _songListData = pl.songs;
   $('heroTitle').textContent = pl.name;
   $('heroDesc').textContent = pl.songs.length + ' 首歌曲';
-  var h='';
-  for(var i=0;i<pl.songs.length;i++){
-    var s=pl.songs[i];
-    h+='<li class="song-row" data-id="'+s.id+'" data-index="'+i+'"><span class="song-num">'+(i+1)+'</span><div class="song-title-wrap"><span class="song-title">'+s.title+'</span></div><span class="song-artist">'+(s.artist||'Unknown')+'</span><span class="song-album">'+(s.album||'--')+'</span><span class="song-dur">'+fmt(s.duration)+'</span></li>';
+  var listEl = $('songsList');
+  listEl.innerHTML = '';
+  listEl.style.overflow = 'visible';
+  // Scroll container is .view-discover
+  _songListEl = document.querySelector('.view-discover');
+  if(_songListEl._scrollHandler) _songListEl.removeEventListener('scroll', _songListEl._scrollHandler);
+  _songListEl._scrollHandler = songListOnScroll;
+  _songListEl.addEventListener('scroll', songListOnScroll, {passive:true});
+  _songListEl.scrollTop = 0;
+  _songListRendered = [-1,-1];
+  songListRender();
+}
+
+function songListOnScroll(){
+  if(_songListRAF) return;
+  _songListRAF = requestAnimationFrame(function(){ _songListRAF=null; songListRender(); });
+}
+
+function songListRender(){
+  var viewEl = _songListEl;
+  if(!viewEl || !_songListData.length) return;
+  var st = viewEl.scrollTop, vh = viewEl.clientHeight;
+  var headerEl = document.querySelector('.songs-header');
+  var offset = headerEl ? headerEl.offsetTop + headerEl.offsetHeight - viewEl.offsetTop : 120;
+  var visibleStart = Math.max(0, st - offset);
+  var start = Math.max(0, Math.floor(visibleStart/ROW_H) - ROW_BUF);
+  var end = Math.min(_songListData.length, Math.ceil((visibleStart+vh)/ROW_H) + ROW_BUF);
+  // Skip if visible range hasn't changed
+  if(start === _songListRendered[0] && end === _songListRendered[1]) return;
+  _songListRendered = [start, end];
+  var h = '<li style="height:'+(start*ROW_H)+'px;pointer-events:none"></li>';
+  for(var i=start;i<end;i++){
+    h += renderSongRow(_songListData[i], i);
   }
+  h += '<li style="height:'+((_songListData.length-end)*ROW_H)+'px;pointer-events:none"></li>';
   $('songsList').innerHTML = h;
   var rows = $('songsList').querySelectorAll('.song-row');
-  for(var r=0;r<rows.length;r++) (function(x){
-    rows[r].addEventListener('click',function(){ playSong(pl.songs[x]); });
-  })(r);
+  for(var r=0;r<rows.length;r++) (function(idx){
+    rows[r].addEventListener('click',function(){ playSong(_songListData[idx]); });
+  })(parseInt(rows[r].dataset.index));
 }
 
 function switchPlaylist(id){

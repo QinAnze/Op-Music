@@ -13,12 +13,17 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Load persisted scan directories from disk on startup
-            let dirs = commands::load_persisted_scan_dirs(&app.handle());
-            let lib = if dirs.is_empty() {
-                MusicLibrary { songs: Vec::new(), playlists: Vec::new() }
+            let handle = app.handle();
+            let dirs = commands::load_persisted_scan_dirs(&handle);
+            // Try cached library first for instant startup, fall back to full scan
+            let lib = if let Some(cached) = commands::load_cached_library(&handle) {
+                cached
+            } else if !dirs.is_empty() {
+                let lib = scanner::build_library(&dirs);
+                commands::cache_library(&handle, &lib);
+                lib
             } else {
-                scanner::build_library(&dirs)
+                MusicLibrary { songs: Vec::new(), playlists: Vec::new() }
             };
             app.manage(AppState {
                 library: Mutex::new(lib),
