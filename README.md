@@ -31,7 +31,7 @@
 
 ## 快速开始
 
-releases内压缩包解压后双击.exe即可使用。目前仅支持Windows端。
+releases内下载安装程序双击安装或下载压缩包解压后双击.exe即可使用。目前仅支持Windows端。
 
 或：
 
